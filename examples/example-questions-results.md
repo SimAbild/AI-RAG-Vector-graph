@@ -2,11 +2,13 @@
 
 Testet i n8n's indbyggede chat-vindue på "Opskrift Agent"-workflowet.
 
-> Udfyld de tomme felter nedenfor efter at have kørt de tre spørgsmål i chatten, og vedlæg skærmbilleder af selve samtalerne i `screenshots/`.
+Skærmbilleder af samtalerne ligger i `../screenshots/` (chat-example-1.png, -2.png, -3.png).
 
 ## Spørgsmål 1 (forventet: Vector Search Tool)
 
 **Spørgsmål:** "Jeg har lyst til noget med kylling og karry"
+
+![Spørgsmål 1](../screenshots/chat-example-1.png)
 
 **Værktøj(er) kaldt:** Vector Search Tool (input: `query: "kylling og karry"`)
 
@@ -26,6 +28,8 @@ Testet i n8n's indbyggede chat-vindue på "Opskrift Agent"-workflowet.
 
 **Spørgsmål:** "Hvilke opskrifter indeholder tomat?"
 
+![Spørgsmål 2](../screenshots/chat-example-2.png)
+
 **Værktøj(er) kaldt:** Graph Search Tool (input: `ingredient: "tomat"`). Værktøjet svarede succesfuldt (273ms), med skema `recipe`, `ingredients`, `categories` — de faktiske returnerede rækker (`values`) er endnu ikke bekræftet/dokumenteret her.
 
 **Hentet information (fra værktøjet):** _(afventer — "values" skal foldes ud i Output-panelet for at bekræfte præcis hvilke rækker Neo4j returnerede)_
@@ -39,6 +43,8 @@ Testet i n8n's indbyggede chat-vindue på "Opskrift Agent"-workflowet.
 ## Spørgsmål 3 — begrænsning/fejl (bekræftet)
 
 **Spørgsmål:** "Findes der en opskrift med rejer?"
+
+![Spørgsmål 3](../screenshots/chat-example-3.png)
 
 **Værktøj(er) kaldt:** Vector Search Tool (input: `query: "rejer"`).
 
