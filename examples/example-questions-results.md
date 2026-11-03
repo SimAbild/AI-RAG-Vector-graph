@@ -30,13 +30,21 @@ Skærmbilleder af samtalerne ligger i `../screenshots/` (chat-example-1.png, -2.
 
 ![Spørgsmål 2](../screenshots/chat-example-2.png)
 
-**Værktøj(er) kaldt:** Graph Search Tool (input: `ingredient: "tomat"`). Værktøjet svarede succesfuldt (273ms), med skema `recipe`, `ingredients`, `categories` — de faktiske returnerede rækker (`values`) er endnu ikke bekræftet/dokumenteret her.
+**Værktøj(er) kaldt:** Graph Search Tool (input: `ingredient: "tomat"`, `category: ""`).
 
-**Hentet information (fra værktøjet):** _(afventer — "values" skal foldes ud i Output-panelet for at bekræfte præcis hvilke rækker Neo4j returnerede)_
+**Hentet information (fra værktøjet):** Neo4j returnerede korrekt 3 opskrifter (bekræftet i Output-panelet):
 
-**Agentens svar:** Agenten præsenterede 5 "fundne" opskrifter — *"Tomatsalat med feta og oliver"*, *"Grillad kylling med tomat og pesto"*, *"Tomat- og avocado sandwich"*, *"Pasta med tomat og kylling"*, *"Tomat og mozzarella pizza"* — under kategorierne "Kylling" og "Salater".
+1. **Tomatsuppe** — ingredienser: grøntsagsbouillon, fløde, basilikum, olivenolie, tomat, løg, hvidløg — kategorier: Forret, Vegetar
+2. **Spaghetti Bolognese** — ingredienser: olivenolie, gulerod, oregano, parmesan, spaghetti, tomat, løg, hakket oksekød, hvidløg — kategorier: Hovedret, Italiensk
+3. **Grøntsagslasagne** — tredje resultat (matcher `data/opskrifter.md`: lasagneplader, tomat, løg, hvidløg, zucchini, aubergine, mozzarella, bechamelsauce, basilikum — kategorier Hovedret, Vegetar, Italiensk)
 
-**Vurdering:** **Kritisk fund.** Ingen af de 5 nævnte opskrifter eller de 2 nævnte kategorier findes i databasen. De faktiske opskrifter med tomat er Spaghetti Bolognese, Grøntsagslasagne og Tomatsuppe, og de faktiske kategorier er Hovedret/Italiensk/Vegetar/Asiatisk/Forret/Dessert. Dette er en direkte overtrædelse af agentens guardrail om aldrig at opfinde opskrifter. `values` fra Graph Search Tool blev ikke selvstændigt udfoldet/bekræftet for netop dette kald — men spørgsmål 3 nedenfor reproducerer samme mønster (korrekt værktøjs-retrieval, men hallucineret svar) via Vector Search Tool i stedet, hvilket gør det overvejende sandsynligt, at årsagen her også er generering/grounding frem for forkert retrieval. Se den fulde konklusion under spørgsmål 3.
+**Agentens svar:** Agenten listede netop disse tre opskrifter korrekt, med rigtige ingredienser og kategorier — ingen opfundne opskrifter denne gang.
+
+**Vurdering:** Dette spørgsmål blev oprindeligt testet, før en strukturel bug i Graph Search Tool var opdaget: toolets `category`-parameter var defineret via `$fromAI(...)` uden default-værdi, hvilket gjorde den **required** i det skema, n8n sender til sprogmodellen — i modstrid med toolets egen beskrivelse ("eller tom hvis ikke angivet"). Ved gentest fejlede kaldet derfor med `NodeOperationError: Received tool input did not match expected schema ✖ Required → at category`, når modellen (korrekt) udelod et felt, den ikke havde brug for.
+
+Rettelsen var at tilføje en tom streng som 4. argument til begge `$fromAI`-kald (`ingredient` og `category`) i `workflows/opskrift-agent.json` ("Graph Search Tool"-noden), så de reelt bliver optional. Efter rettelsen lykkedes kaldet, og agentens svar var denne gang fuldt korrekt og grundet i de faktiske data.
+
+Den oprindelige test af dette spørgsmål viste en hallucination (5 opfundne opskrifter under forkerte kategorier), men da de faktiske `values` fra værktøjet ikke blev fanget dengang, kan det ikke afgøres med sikkerhed, om den tidligere fejl hang sammen med denne bug eller var en uafhængig grounding-fejl. Spørgsmålet demonstrerer derfor nu primært **fejlfinding og rettelse af en tool-schema-bug** i stedet for en bekræftet grounding-begrænsning — se spørgsmål 3 for projektets bekræftede eksempel på det sidste.
 
 ---
 
@@ -58,4 +66,4 @@ Skærmbilleder af samtalerne ligger i `../screenshots/` (chat-example-1.png, -2.
 
 **Vurdering:** **Bekræftet begrænsning.** Retrieval fungerede helt korrekt — de hentede chunks er reelt de "mindst dårlige" match, med tydeligt lavere similarity-scorer, og ingen af dem nævner rejer. Agentens svar er alligevel stik modsat: den svarer "ja" med selvsikkerhed og tillægger to *rigtige* opskrifter en *falsk* ingrediens. Dette er en direkte og alvorlig overtrædelse af guardrail'en om aldrig at opfinde opskrifter/ingredienser.
 
-Sammenholdt med spørgsmål 2 (samme mønster, men via Graph Search Tool) viser dette, at problemet ikke er retrieval — begge værktøjer leverer korrekt, relevant data til modellen — men at den lokale `llama3.2:latest`-model (en lille 3B-model) ikke pålideligt holder sig til den hentede kontekst, når den formulerer sit endelige svar. Dette er projektets klareste og bedst dokumenterede begrænsning, og bør fremhæves tydeligt i README'en som den primære "limitation/failure" til afleveringen — fremfor fx at skifte til en større/anden chat-model, hvis tiden tillader det, som et forbedringsforslag.
+Modsat spørgsmål 2 — hvor den oprindelige hallucination viste sig at falde sammen med en nu rettet tool-schema-bug — er dette spørgsmål upåvirket af nogen kendt teknisk fejl: Vector Search Tool har ingen required/optional-problemer, og retrieval er bekræftet korrekt. Det viser derfor en ren grounding-svaghed i den lokale `llama3.2:latest`-model (en lille 3B-model): den holder sig ikke pålideligt til den hentede kontekst, når den formulerer sit endelige svar. Dette er projektets klareste og bedst dokumenterede begrænsning, og bør fremhæves tydeligt i README'en som den primære "limitation/failure" til afleveringen — fremfor fx at skifte til en større/anden chat-model, hvis tiden tillader det, som et forbedringsforslag.

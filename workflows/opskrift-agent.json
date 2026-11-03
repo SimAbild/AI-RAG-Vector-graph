@@ -101,8 +101,8 @@
         "workflowInputs": {
           "mappingMode": "defineBelow",
           "value": {
-            "ingredient": "={{ $fromAI('ingredient', 'En specifik ingrediens at filtrere på, eller tom hvis ikke angivet', 'string') }}",
-            "category": "={{ $fromAI('category', 'En specifik kategori at filtrere på, eller tom hvis ikke angivet', 'string') }}"
+            "ingredient": "={{ $fromAI('ingredient', 'En specifik ingrediens at filtrere på, eller tom hvis ikke angivet', 'string', '') }}",
+            "category": "={{ $fromAI('category', 'En specifik kategori at filtrere på, eller tom hvis ikke angivet', 'string', '') }}"
           },
           "matchingColumns": [],
           "schema": [

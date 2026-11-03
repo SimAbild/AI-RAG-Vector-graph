@@ -83,7 +83,7 @@ Alle fire workflows, mærket efter formål (sticky note i hvert workflow beskriv
 
 ![Spørgsmål 1](screenshots/chat-example-1.png)
 
-**2. "Hvilke opskrifter indeholder tomat?"** (Graph Search Tool) — **kritisk fund**: retrieval var korrekt, men agenten opfandt 5 ikke-eksisterende opskrifter i sit svar:
+**2. "Hvilke opskrifter indeholder tomat?"** (Graph Search Tool) — afslørede en tool-schema-bug (`category`-parameter var fejlagtigt required); efter rettelsen svarer agenten korrekt med de tre rigtige opskrifter:
 
 ![Spørgsmål 2](screenshots/chat-example-2.png)
 
@@ -110,8 +110,10 @@ qwen2.5 citerede hentet tekst mere præcist (spørgsmål 1), men havde en strukt
 
 ## Kendt begrænsning
 
-n8n's nye "Agents"-builder-fane (separat UI fra klassiske workflows) er ikke tilgængelig i vores selvhostede n8n-version, selvom dokumentationen angiver den burde være aktiveret som standard. Vi har derfor brugt den klassiske, fuldt understøttede **AI Agent-node** (LangChain-baseret) i stedet, som opfylder de samme reelle krav (rolle/instruktioner/guardrails + tools forbundet som separate retrieval-workflows).
+n8n's nye "Agents"-builder-fane (separat UI fra klassiske workflows) er ikke tilgængelig i min selvhostede n8n-version, selvom dokumentationen angiver den burde være aktiveret som standard. Jeg har derfor brugt den klassiske, fuldt understøttede **AI Agent-node** (LangChain-baseret) i stedet, som opfylder de samme reelle krav (rolle/instruktioner/guardrails + tools forbundet som separate retrieval-workflows).
 
-**Vigtigere begrænsning, bekræftet ved test:** i to af de tre eksempelspørgsmål (se `examples/example-questions-results.md`, spørgsmål 2 og 3) hentede både Graph Search Tool og Vector Search Tool korrekt, relevant data fra Neo4j — men agentens endelige svar ignorerede det hentede data og opfandt i stedet opskrifter/ingredienser, der ikke findes (bl.a. en falsk påstand om, at Tomatsuppe og Æblekage indeholder rejer). Dette er ikke en retrieval-fejl, men en grounding-svaghed i den lokale `llama3.2:latest`-model (3B), som ikke pålideligt holder sig til den kontekst, værktøjerne returnerer.
+**Vigtigere begrænsning, bekræftet ved test:** i spørgsmål 3 (se `examples/example-questions-results.md`) hentede Vector Search Tool korrekt, relevant data fra Neo4j — men agentens endelige svar ignorerede det hentede data og opfandt i stedet en ingrediens, der ikke findes (en falsk påstand om, at Tomatsuppe og Æblekage indeholder rejer). Dette er ikke en retrieval-fejl, men en grounding-svaghed i den lokale `llama3.2:latest`-model (3B), som ikke pålideligt holder sig til den kontekst, værktøjerne returnerer.
+
+Under test af spørgsmål 2 blev der desuden fundet og rettet en separat, teknisk fejl: Graph Search Tool-noden definerede sin `category`-parameter via `$fromAI(...)` uden default-værdi, hvilket gjorde den fejlagtigt required i det skema, der sendes til sprogmodellen, og fik kald uden en angivet kategori til at fejle med en skema-valideringsfejl (`Received tool input did not match expected schema`). Rettet ved at tilføje en tom streng som default — se spørgsmål 2 i `examples/example-questions-results.md` for detaljer.
 
 Jeg afprøvede også `qwen2.5:latest` som alternativ chat-model for at undersøge, om en anden lokal model klarede sig bedre — se `agent/model-comparison.md` for den fulde sammenligning. Kort fortalt: qwen2.5 var bedre til at citere hentet tekst korrekt, men havde til gengæld en strukturel kompatibilitetsfejl med Graph Search-værktøjet (afviste valgfrie parametre), som i et tilfælde førte til fuldstændig urelateret hallucination. Jeg beholdt `llama3.2:latest` som den endelige model, da dens fejlmønster er mere forudsigeligt.
