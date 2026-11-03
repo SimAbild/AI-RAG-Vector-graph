@@ -1,0 +1,103 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Vector Retrieval\nFinder opskrifts-chunks ud fra semantisk lighed (cosine similarity).\n\n1. Modtager `query` fra agenten\n2. Embedder query (Ollama, nomic-embed-text)\n3. Søger i Neo4js vector-indeks (chunkEmbeddings)",
+        "height": 200,
+        "width": 700,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [0, -240],
+      "id": "s1t2i3c4-0000-4000-8000-000000000001",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "query"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0],
+      "id": "7804f383-7069-4715-bbbb-7a3913102f3d",
+      "name": "Start: Vector-søgning (query)",
+      "notes": "Tool-indgang for AI-agenten. Tager imod ét input-felt, 'query' (String) — en naturlig sprog-beskrivelse af hvad brugeren leder efter, f.eks. 'noget med tomat og kylling'. Dette workflow kaldes som et separat 'tool' fra agenten og kan også testes manuelt via pinned data.",
+      "notesInFlow": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:11434/api/embed",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"nomic-embed-text\",\n  \"input\": \"{{ $json.query }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [224, 0],
+      "id": "f73b7f89-b6b4-46d6-9d19-3d71a9ee3749",
+      "name": "Generér Embedding (Ollama)",
+      "notes": "Sender brugerens query til Ollamas lokale embeddings-API (model: nomic-embed-text, kører i Docker-containeren 'ollama') og får en 768-dimensionel vektor tilbage. Ingen auth nødvendig (lokal, ingen API-nøgle).",
+      "notesInFlow": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:7474/db/neo4j/query/v2",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"statement\": \"CALL db.index.vector.queryNodes('chunkEmbeddings', $topK, $queryEmbedding) YIELD node, score RETURN node.text AS chunkText, node.recipeName AS recipe, score ORDER BY score DESC\",\n  \"parameters\": {\n    \"topK\": 3,\n    \"queryEmbedding\": {{ JSON.stringify($json.embeddings[0]) }}\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [448, 0],
+      "id": "95301934-dffd-4f16-a93a-87f732217cb0",
+      "name": "Søg i Vector-indeks (Neo4j)",
+      "notes": "Bruger Neo4js vektorindeks 'chunkEmbeddings' (cosine similarity) til at finde de 3 mest semantisk lignende opskrifts-chunks. Returnerer chunk-tekst, opskriftsnavn og similarity-score, rangeret højest først.",
+      "notesInFlow": true,
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "TT6FQol9C7sHxMPk",
+          "name": "Neo4j Basic Auth"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Start: Vector-søgning (query)": {
+      "main": [
+        [
+          { "node": "Generér Embedding (Ollama)", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Generér Embedding (Ollama)": {
+      "main": [
+        [
+          { "node": "Søg i Vector-indeks (Neo4j)", "type": "main", "index": 0 }
+        ]
+      ]
+    }
+  },
+  "pinData": {
+    "Start: Vector-søgning (query)": [
+      {
+        "query": "noget med tomat og kylling"
+      }
+    ]
+  },
+  "meta": {
+    "instanceId": "81066baa0b0b6716ac9650f089d6eac9f881675fc6a7e21c58ad052f0f1357bd"
+  }
+}

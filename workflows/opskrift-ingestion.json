@@ -1,0 +1,187 @@
+{
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "2e63d80a-eadb-4d2f-920b-2717bae04be9",
+      "name": "Start: Indsæt én opskrift",
+      "notesInFlow": true,
+      "notes": "“Manuel trigger til test af én opskrift ad gangen. Udskiftes senere med loop over alle opskrifter.”"
+    },
+    {
+      "parameters": {
+        "content": "## Opskrift Ingestion\nLæser én opskrift → splitter i chunks → laver embeddings via Ollama (nomic-embed-text) → gemmer både graph-struktur (Recipe/Category/Ingredient) og vector-chunks i Neo4j.\n\nManuel test-version: én opskrift ad gangen. Udvides senere til at loope over alle opskrifter.",
+        "height": 220,
+        "width": 340,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -16,
+        -272
+      ],
+      "id": "2e131646-6f0e-4db3-a70e-017b82cd168d",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "jsCode": "const results = [];\n\nfor (const item of $input.all()) {\n  const recipe = item.json;\n  const sentences = recipe.instructions\n    .split(/(?<=[.!?])\\s+/)\n    .filter(s => s.trim().length > 0);\n\n  const chunkSize = 2;\n  for (let i = 0; i < sentences.length; i += chunkSize) {\n    results.push({\n      json: {\n        recipeName: recipe.name,\n        category: recipe.category,\n        ingredients: recipe.ingredients,\n        chunkIndex: Math.floor(i / chunkSize),\n        chunkText: sentences.slice(i, i + chunkSize).join(' ')\n      }\n    });\n  }\n}\n\nreturn results;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        0
+      ],
+      "id": "d896d089-6e42-4db2-8c98-b1fcd546971a",
+      "name": "Chunk Fremgangsmåde",
+      "notesInFlow": true,
+      "notes": "Splitter fremgangsmåde-teksten i mindre stykker (2 sætninger pr. chunk) til vector-embedding. Ét output-item pr. chunk."
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nreturn items.map((item, i) => {\n  const chunkData = $('Chunk Fremgangsmåde').itemMatching(i).json;\n  return {\n    json: {\n      recipeName: chunkData.recipeName,\n      category: chunkData.category,\n      ingredients: chunkData.ingredients,\n      chunkIndex: chunkData.chunkIndex,\n      chunkText: chunkData.chunkText,\n      embedding: item.json.embeddings[0]\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        896,
+        0
+      ],
+      "id": "3a16eb70-bd0a-4f6e-b6c9-73c1f28c8327",
+      "name": "Saml Chunk og Embedding",
+      "notesInFlow": true,
+      "notes": "Kombinerer den oprindelige chunk-metadata (fra 'Chunk Fremgangsmåde') med den tilhørende embedding-vektor fra Ollama. Bruger itemMatching() (ikke positionsindeks) for korrekt kobling, selv hvis kald fejler/gentages undervejs."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:7474/db/neo4j/query/v2",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"statement\": \"MERGE (r:Recipe {name: $recipeName}) WITH r UNWIND split($category, ', ') AS catName MERGE (c:Category {name: catName}) MERGE (r)-[:BELONGS_TO]->(c) WITH DISTINCT r UNWIND split($ingredients, ', ') AS ingName MERGE (i:Ingredient {name: ingName}) MERGE (r)-[:CONTAINS]->(i) WITH DISTINCT r MERGE (ch:Chunk {recipeName: $recipeName, chunkIndex: $chunkIndex}) SET ch.text = $chunkText, ch.embedding = $embedding MERGE (r)-[:HAS_CHUNK]->(ch) RETURN r.name AS recipe, ch.chunkIndex AS chunk\",\n  \"parameters\": {\n    \"recipeName\": \"{{ $json.recipeName }}\",\n    \"category\": \"{{ $json.category }}\",\n    \"ingredients\": \"{{ $json.ingredients }}\",\n    \"chunkIndex\": {{ $json.chunkIndex }},\n    \"chunkText\": \"{{ $json.chunkText }}\",\n    \"embedding\": {{ JSON.stringify($json.embedding) }}\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1072,
+        0
+      ],
+      "id": "5bc1bf98-5726-48a4-b473-4ba9c31ed7d9",
+      "name": "Gem i Neo4j (Graph + Vector)",
+      "notesInFlow": true,
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "TT6FQol9C7sHxMPk",
+          "name": "Neo4j Basic Auth"
+        }
+      },
+      "notes": "Opretter/opdaterer Recipe-, Category- og Ingredient-noder med relationer, samt gemmer chunk-tekst og embedding som en Chunk-node forbundet til opskriften."
+    },
+    {
+      "parameters": {
+        "jsCode": "const recipes = [\n  {\n    name: \"Spaghetti Bolognese\",\n    category: \"Hovedret, Italiensk\",\n    ingredients: \"spaghetti, hakket oksekød, tomat, løg, hvidløg, gulerod, olivenolie, oregano, parmesan\",\n    instructions: \"Hak løg, hvidløg og gulerod fint, og svits dem i olivenolie ved middel varme, til løgene er gennemsigtige. Tilsæt det hakkede oksekød, og brun det godt af. Rør tomat og oregano i, og lad saucen simre i mindst 30 minutter, så smagene når at trække sammen. Kog spaghettien efter anvisning på pakken, og vend den med saucen. Server med friskrevet parmesan.\"\n  },\n  {\n    name: \"Grøntsagslasagne\",\n    category: \"Hovedret, Vegetar, Italiensk\",\n    ingredients: \"lasagneplader, tomat, løg, hvidløg, zucchini, aubergine, mozzarella, bechamelsauce, basilikum\",\n    instructions: \"Skær zucchini og aubergine i tynde skiver, og rist dem let på en pande. Svits løg og hvidløg, tilsæt tomat, og lad saucen simre i 15 minutter med frisk basilikum. Lag lasagneplader, grøntsager, tomatsauce og bechamelsauce skiftevis i et ildfast fad, og slut af med mozzarella øverst. Bag i ovnen ved 200 grader i cirka 35 minutter, til osten er gylden.\"\n  },\n  {\n    name: \"Thai Kyllingecurry\",\n    category: \"Hovedret, Asiatisk\",\n    ingredients: \"kyllingebryst, kokosmælk, rød karrypasta, løg, hvidløg, ingefær, peberfrugt, fiskesauce, ris\",\n    instructions: \"Svits løg, hvidløg og ingefær i en gryde, til det dufter godt. Tilsæt karrypasta, og rør rundt i et minut, så smagene vågner. Hæld kokosmælk i, og lad det simre. Tilsæt kyllingebryst i tern og peberfrugt i strimler, og lad retten simre videre i 15 minutter, til kyllingen er gennemstegt. Smag til med fiskesauce, og server med kogt ris.\"\n  },\n  {\n    name: \"Tomatsuppe\",\n    category: \"Forret, Vegetar\",\n    ingredients: \"tomat, løg, hvidløg, grøntsagsbouillon, fløde, basilikum, olivenolie\",\n    instructions: \"Svits løg og hvidløg i olivenolie, til de er bløde. Tilsæt tomat og grøntsagsbouillon, og lad suppen koge i 20 minutter. Blend suppen helt glat, og rør fløde i til sidst. Server varm, pyntet med friske basilikumblade.\"\n  },\n  {\n    name: \"Æblekage\",\n    category: \"Dessert\",\n    ingredients: \"æble, mel, sukker, smør, æg, kanel, rasp\",\n    instructions: \"Skær æblerne i tynde skiver, og vend dem med kanel og lidt sukker. Rør smør, sukker og æg sammen til en jævn dej, og tilsæt mel. Fordel rasp i bunden af en ovnfast form, læg dejen ovenpå, og fordel æbleskiverne øverst. Bag ved 180 grader i cirka 30 minutter, til kagen er gylden og æblerne er møre.\"\n  }\n];\n\nreturn recipes.map(recipe => ({ json: recipe }));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        0
+      ],
+      "id": "3e277f82-a790-44ba-8b0c-f3989766a5e4",
+      "name": "Opskrift: Rådata",
+      "notesInFlow": true,
+      "notes": "5 eksempelopskrifter som statisk testdata — udskiftes senere evt. med en rigtig datakilde.” på noden."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:11434/api/embed",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"nomic-embed-text\",\n  \"input\": \"{{ $json.chunkText }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        672,
+        0
+      ],
+      "id": "5a61a287-a074-4641-86c0-d2f7d0d5be5f",
+      "name": "Generér Embedding (Ollama)",
+      "notesInFlow": true,
+      "notes": "Sender chunk-teksten til Ollamas lokale embeddings-API (model: nomic-embed-text, kører i Docker-containeren 'ollama') og får en 768-dimensionel vektor tilbage. Ingen auth nødvendig (lokal, ingen API-nøgle)."
+    }
+  ],
+  "connections": {
+    "Start: Indsæt én opskrift": {
+      "main": [
+        [
+          {
+            "node": "Opskrift: Rådata",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chunk Fremgangsmåde": {
+      "main": [
+        [
+          {
+            "node": "Generér Embedding (Ollama)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Saml Chunk og Embedding": {
+      "main": [
+        [
+          {
+            "node": "Gem i Neo4j (Graph + Vector)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Opskrift: Rådata": {
+      "main": [
+        [
+          {
+            "node": "Chunk Fremgangsmåde",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generér Embedding (Ollama)": {
+      "main": [
+        [
+          {
+            "node": "Saml Chunk og Embedding",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "81066baa0b0b6716ac9650f089d6eac9f881675fc6a7e21c58ad052f0f1357bd"
+  }
+}

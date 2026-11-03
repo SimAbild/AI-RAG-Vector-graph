@@ -1,0 +1,96 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Graph Retrieval\nFinder opskrifter ud fra strukturerede kriterier (ingrediens og/eller kategori) via graph-traversal — modsat semantisk lighed.\n\n1. Modtager valgfrie felter `ingredient` og `category` fra agenten\n2. Matcher Recipe-noder mod deres CONTAINS/BELONGS_TO-relationer i Neo4j\n3. Returnerer opskrifter der matcher kriterierne (tomt felt = ingen filtrering)",
+        "height": 200,
+        "width": 500,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        -240
+      ],
+      "id": "g1r2a3p4-0000-4000-8000-000000000001",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "ingredient"
+            },
+            {
+              "name": "category"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "id": "d9a3cbbe-87e4-4ae9-933e-c20d2f754e07",
+      "name": "Start: Graph Søgning (ingredient/category)",
+      "notesInFlow": true,
+      "notes": "Tool-indgang for AI-agenten. Tager imod to valgfrie input-felter: 'ingredient' og 'category' (begge String, kan være tomme/null). Dette workflow kaldes som et separat 'tool' fra agenten til strukturerede forespørgsler, og kan testes manuelt via pinned data."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:7474/db/neo4j/query/v2",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"statement\": \"MATCH (r:Recipe) OPTIONAL MATCH (r)-[:CONTAINS]->(i:Ingredient) OPTIONAL MATCH (r)-[:BELONGS_TO]->(c:Category) WITH r, collect(DISTINCT i.name) AS ingredients, collect(DISTINCT c.name) AS categories WHERE ($ingredient IS NULL OR $ingredient IN ingredients) AND ($category IS NULL OR $category IN categories) RETURN r.name AS recipe, ingredients, categories\",\n  \"parameters\": {\n    \"ingredient\": {{ $json.ingredient ? JSON.stringify($json.ingredient) : 'null' }},\n    \"category\": {{ $json.category ? JSON.stringify($json.category) : 'null' }}\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        224,
+        0
+      ],
+      "id": "a0c1d31e-0a98-467d-b07e-76be69d4a71f",
+      "name": "Søg i graph (neo4J)",
+      "notesInFlow": true,
+      "notes": "Bruger Neo4js graph-relationer (CONTAINS til Ingredient, BELONGS_TO til Category) til at finde opskrifter der matcher de angivne kriterier. Tomme felter sendes som null og ignoreres i WHERE-clausen (ingen filtrering på det felt).",
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "TT6FQol9C7sHxMPk",
+          "name": "Neo4j Basic Auth"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Start: Graph Søgning (ingredient/category)": {
+      "main": [
+        [
+          {
+            "node": "Søg i graph (neo4J)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {
+    "Start: Graph Søgning (ingredient/category)": [
+      {
+        "ingredient": "tomat",
+        "category": null
+      }
+    ]
+  },
+  "meta": {
+    "instanceId": "81066baa0b0b6716ac9650f089d6eac9f881675fc6a7e21c58ad052f0f1357bd"
+  }
+}

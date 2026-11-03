@@ -1,0 +1,213 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## AI Agent\nOpskrift-assistent, der kombinerer vector- og graph-retrieval til at besvare spørgsmål om opskrifter.\n\n1. Modtager besked via chat (n8n's indbyggede test-chat)\n2. Chat-model: Ollama (llama3.2, lokal, docker)\n3. Vælger selv mellem to tools:\n   • Vector Search Tool → beskrivende/semantiske spørgsmål\n   • Graph Search Tool → strukturerede spørgsmål (ingrediens/kategori)\n\nGuardrails: anbefaler kun opskrifter fundet via værktøjerne (opfinder aldrig), svarer på dansk, afviser venligt spørgsmål uden for opskrift-domænet.",
+        "height": 260,
+        "width": 620,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        128,
+        -300
+      ],
+      "id": "a1g2e3n4-0000-4000-8000-000000000001",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.5,
+      "position": [
+        128,
+        0
+      ],
+      "id": "b4cebef9-18b8-4551-b342-92467cb9f577",
+      "name": "When chat message received",
+      "webhookId": "01b706ae-ed68-4aa2-8d9a-d2dc27bfa4fb"
+    },
+    {
+      "parameters": {
+        "options": {
+          "systemMessage": "Du er en hjælpsom opskrift-assistent for en lille samling danske opskrifter.\n\nDin rolle:\n- Hjælp brugeren med at finde opskrifter ud fra enten en beskrivelse (f.eks. \"noget med kylling og karry\") eller specifikke kriterier (ingrediens, kategori).\n- Brug \"Opskrift Vector Search\"-værktøjet til beskrivende/semantiske spørgsmål.\n- Brug \"Opskrift Graph Search\"-værktøjet til strukturerede spørgsmål om bestemte ingredienser eller kategorier.\n- Du kan bruge begge værktøjer i samme svar, hvis det giver bedre resultater.\n\nGuardrails:\n- Du må kun anbefale opskrifter, der faktisk findes i databasen via værktøjerne — opfind aldrig opskrifter eller ingredienser.\n- Hvis ingen af værktøjerne finder noget relevant, sig det ærligt til brugeren i stedet for at gætte.\n- Hold dig til opskrift-domænet; afvis høfligt spørgsmål, der ikke handler om mad/opskrifter.\n- Svar på dansk."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        384,
+        0
+      ],
+      "id": "c8d77c98-3bbe-46f6-a3d8-40ca1ef619ef",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "description": "Søg efter opskrifter baseret på en beskrivende, semantisk forespørgsel (f.eks. \"noget med kylling og karry\"). Brug dette værktøj, når brugeren beskriver hvad de har lyst til at spise, frem for at nævne en konkret ingrediens eller kategori.",
+        "workflowId": {
+          "__rl": true,
+          "value": "pO6yyji45xwyYC3Z",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/pO6yyji45xwyYC3Z",
+          "cachedResultName": "Opskrift Vector Search"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "query": "={{ $fromAI('query', 'Brugerens naturlige sprog-beskrivelse af hvad de ønsker at spise', 'string') }}"
+          },
+          "matchingColumns": [
+            "query"
+          ],
+          "schema": [
+            {
+              "id": "query",
+              "displayName": "query",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2,
+      "position": [
+        704,
+        304
+      ],
+      "id": "d5afce1f-4299-4269-b0f2-8e1195b62528",
+      "name": "Vector Search Tool"
+    },
+    {
+      "parameters": {
+        "description": "Søg efter opskrifter ud fra specifikke, strukturerede kriterier: en bestemt ingrediens og/eller kategori (f.eks. \"tomat\" eller \"Vegetar\"). Brug dette værktøj, når brugeren nævner en konkret ingrediens eller kategori direkte.",
+        "workflowId": {
+          "__rl": true,
+          "value": "ANlApShIp4ypMDnt",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/ANlApShIp4ypMDnt",
+          "cachedResultName": "Opskrift Graph Search"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "ingredient": "={{ $fromAI('ingredient', 'En specifik ingrediens at filtrere på, eller tom hvis ikke angivet', 'string') }}",
+            "category": "={{ $fromAI('category', 'En specifik kategori at filtrere på, eller tom hvis ikke angivet', 'string') }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "ingredient",
+              "displayName": "ingredient",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "category",
+              "displayName": "category",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2,
+      "position": [
+        464,
+        288
+      ],
+      "id": "ef44ff03-3d3b-43b1-b3f5-f9e72ed9b37a",
+      "name": "Graph Search Tool"
+    },
+    {
+      "parameters": {
+        "model": "llama3.2:latest",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        256,
+        208
+      ],
+      "id": "aeb7ba8a-fd24-4acd-831f-2c99a43f4c3a",
+      "name": "Ollama Chat Model",
+      "credentials": {
+        "ollamaApi": {
+          "id": "GotJCjpkDpoeYyR8",
+          "name": "Ollama account 2"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vector Search Tool": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Graph Search Tool": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "81066baa0b0b6716ac9650f089d6eac9f881675fc6a7e21c58ad052f0f1357bd"
+  }
+}
