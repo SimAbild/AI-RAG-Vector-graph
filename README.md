@@ -77,10 +77,6 @@ Alle fire workflows, mærket efter formål (sticky note i hvert workflow beskriv
 
 ![Agent tool-forbindelser](screenshots/agent-tool-connections.png)
 
-**Neo4j — graf- og vector-data samlet** (`MATCH (n) RETURN n LIMIT 100`):
-
-![Neo4j graf-overblik](screenshots/neo4j-graph-overview.png)
-
 ## Eksempelspørgsmål (resumé — fuld vurdering i `examples/example-questions-results.md`)
 
 **1. "Jeg har lyst til noget med kylling og karry"** (Vector Search Tool) — fandt korrekt Thai Kyllingecurry, men blandede et irrelevant 3. resultat ind og behandlede to chunks fra samme opskrift som to forskellige retter:
@@ -118,4 +114,4 @@ n8n's nye "Agents"-builder-fane (separat UI fra klassiske workflows) er ikke til
 
 **Vigtigere begrænsning, bekræftet ved test:** i to af de tre eksempelspørgsmål (se `examples/example-questions-results.md`, spørgsmål 2 og 3) hentede både Graph Search Tool og Vector Search Tool korrekt, relevant data fra Neo4j — men agentens endelige svar ignorerede det hentede data og opfandt i stedet opskrifter/ingredienser, der ikke findes (bl.a. en falsk påstand om, at Tomatsuppe og Æblekage indeholder rejer). Dette er ikke en retrieval-fejl, men en grounding-svaghed i den lokale `llama3.2:latest`-model (3B), som ikke pålideligt holder sig til den kontekst, værktøjerne returnerer.
 
-Vi afprøvede også `qwen2.5:latest` som alternativ chat-model for at undersøge, om en anden lokal model klarede sig bedre — se `agent/model-comparison.md` for den fulde sammenligning. Kort fortalt: qwen2.5 var bedre til at citere hentet tekst korrekt, men havde til gengæld en strukturel kompatibilitetsfejl med Graph Search-værktøjet (afviste valgfrie parametre), som i et tilfælde førte til fuldstændig urelateret hallucination. Vi beholdt `llama3.2:latest` som den endelige model, da dens fejlmønster er mere forudsigeligt.
+Jeg afprøvede også `qwen2.5:latest` som alternativ chat-model for at undersøge, om en anden lokal model klarede sig bedre — se `agent/model-comparison.md` for den fulde sammenligning. Kort fortalt: qwen2.5 var bedre til at citere hentet tekst korrekt, men havde til gengæld en strukturel kompatibilitetsfejl med Graph Search-værktøjet (afviste valgfrie parametre), som i et tilfælde førte til fuldstændig urelateret hallucination. Jeg beholdt `llama3.2:latest` som den endelige model, da dens fejlmønster er mere forudsigeligt.
