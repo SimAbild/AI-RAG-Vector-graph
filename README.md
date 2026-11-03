@@ -47,11 +47,61 @@ Alt kører over Docker (n8n + Ollama i containere på samme netværk), undtagen 
 | Krav | Placering |
 |---|---|
 | Workflow JSON (alle 4) | `workflows/` |
-| Workflow-skærmbilleder (mærket efter formål) | `screenshots/` — se `screenshots/README.md` for liste |
+| Workflow-skærmbilleder (mærket efter formål) | `screenshots/` — vist direkte nedenfor |
 | Agent-konfiguration og prompts | `agent/system-prompt.txt`, `agent/tool-descriptions.md` |
-| Model-sammenligning (llama3.2 vs. qwen2.5) | `agent/model-comparison.md` |
-| Tre eksempelspørgsmål + resultater + vurdering | `examples/example-questions-results.md` |
+| Model-sammenligning (llama3.2 vs. qwen2.5) | `agent/model-comparison.md` — skærmbilleder vist nedenfor |
+| Tre eksempelspørgsmål + resultater + vurdering | `examples/example-questions-results.md` — skærmbilleder vist nedenfor |
 | Data og setup | `data/` — se nedenfor |
+
+## Workflow-overblik
+
+Alle fire workflows, mærket efter formål (sticky note i hvert workflow beskriver formålet).
+
+**Data ingestion** — læser opskrifterne, chunker, embedder (Ollama) og skriver både graf og vector-chunks til Neo4j:
+
+![Opskrift Ingestion](screenshots/workflow-ingestion.png)
+
+**Vector retrieval** — semantisk søgning via Neo4js vektorindeks:
+
+![Opskrift Vector Search](screenshots/workflow-vector-search.png)
+
+**Graph retrieval** — struktureret opslag via graf-relationer:
+
+![Opskrift Graph Search](screenshots/workflow-graph-search.png)
+
+**AI Agent** — bruger begge ovenstående som tools:
+
+![Opskrift Agent](screenshots/workflow-agent.png)
+
+**Agentens tool-forbindelser** (Ollama Chat Model + de to retrieval-tools forbundet til AI Agent-noden):
+
+![Agent tool-forbindelser](screenshots/agent-tool-connections.png)
+
+**Neo4j — graf- og vector-data samlet** (`MATCH (n) RETURN n LIMIT 100`):
+
+![Neo4j graf-overblik](screenshots/neo4j-graph-overview.png)
+
+## Eksempelspørgsmål (resumé — fuld vurdering i `examples/example-questions-results.md`)
+
+**1. "Jeg har lyst til noget med kylling og karry"** (Vector Search Tool) — fandt korrekt Thai Kyllingecurry, men blandede et irrelevant 3. resultat ind og behandlede to chunks fra samme opskrift som to forskellige retter:
+
+![Spørgsmål 1](screenshots/chat-example-1.png)
+
+**2. "Hvilke opskrifter indeholder tomat?"** (Graph Search Tool) — **kritisk fund**: retrieval var korrekt, men agenten opfandt 5 ikke-eksisterende opskrifter i sit svar:
+
+![Spørgsmål 2](screenshots/chat-example-2.png)
+
+**3. "Findes der en opskrift med rejer?"** (Vector Search Tool) — bekræftet begrænsning: retrieval fandt korrekt intet match (lave similarity-scorer), men agenten svarede alligevel "ja" og opfandt en falsk ingrediens på to rigtige opskrifter:
+
+![Spørgsmål 3](screenshots/chat-example-3.png)
+
+## Model-eksperiment: llama3.2 vs. qwen2.5 (resumé — fuld sammenligning i `agent/model-comparison.md`)
+
+qwen2.5 citerede hentet tekst mere præcist (spørgsmål 1), men havde en strukturel fejl i tool-kald til Graph Search (afviste valgfrie parametre) og degenererede i ét tilfælde til urelateret, delvist kinesisk tekst. Vi beholdt `llama3.2:latest` som endelig model.
+
+![qwen2.5 — spørgsmål 1](screenshots/model-comparison/q1-qwen.png)
+![qwen2.5 — tool-fejl](screenshots/model-comparison/q2-qwen-tool-error.png)
+![qwen2.5 — spørgsmål 2+3 i chatten](screenshots/model-comparison/q2-q3-qwen-chat.png)
 
 ## Data og setup
 
