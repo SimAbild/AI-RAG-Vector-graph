@@ -2,7 +2,7 @@
 
 ## Case
 
-Domænet er en lille samling danske opskrifter (5 stk: Spaghetti Bolognese, Grøntsagslasagne, Thai Kyllingecurry, Tomatsuppe, Æblekage), bevidst designet med overlappende ingredienser (tomat, løg, hvidløg) og kategorier, så både graph- og vector-søgning har noget meningsfuldt at demonstrere.
+Domænet er en lille samling opskrifter (5 stk: Spaghetti Bolognese, Grøntsagslasagne, Thai Kyllingecurry, Tomatsuppe, Æblekage), bevidst designet med overlappende ingredienser (tomat, løg, hvidløg) og kategorier, så både graph- og vector-søgning har noget meningsfuldt at demonstrere.
 
 **Agentens rolle:** en hjælpsom opskrift-assistent, der finder opskrifter enten ud fra en beskrivelse ("noget med kylling og karry" → semantisk/vector) eller ud fra konkrete kriterier ("opskrifter med tomat" → struktureret/graph). Fuld system prompt i `agent/system-prompt.txt`.
 
@@ -64,8 +64,6 @@ Alt kører over Docker (n8n + Ollama i containere på samme netværk), undtagen 
 
 ## Kendt begrænsning
 
-n8n's nye "Agents"-builder-fane (separat UI fra klassiske workflows) er ikke tilgængelig i vores selvhostede n8n-version, selvom dokumentationen angiver den burde være aktiveret som standard. Vi har derfor brugt den klassiske, fuldt understøttede **AI Agent-node** (LangChain-baseret) i stedet, som opfylder de samme reelle krav (rolle/instruktioner/guardrails + tools forbundet som separate retrieval-workflows).
+**En begrænsning, bekræftet ved test:** i to af de tre eksempelspørgsmål (se `examples/example-questions-results.md`, spørgsmål 2 og 3) hentede både Graph Search Tool og Vector Search Tool korrekt, relevant data fra Neo4j — men agentens endelige svar ignorerede det hentede data og opfandt i stedet opskrifter/ingredienser, der ikke findes (bl.a. en falsk påstand om, at Tomatsuppe og Æblekage indeholder rejer). Dette er ikke en retrieval-fejl, men en grounding-svaghed i den lokale `llama3.2:latest`-model (3B), som ikke pålideligt holder sig til den kontekst, værktøjerne returnerer.
 
-**Vigtigere begrænsning, bekræftet ved test:** i to af de tre eksempelspørgsmål (se `examples/example-questions-results.md`, spørgsmål 2 og 3) hentede både Graph Search Tool og Vector Search Tool korrekt, relevant data fra Neo4j — men agentens endelige svar ignorerede det hentede data og opfandt i stedet opskrifter/ingredienser, der ikke findes (bl.a. en falsk påstand om, at Tomatsuppe og Æblekage indeholder rejer). Dette er ikke en retrieval-fejl, men en grounding-svaghed i den lokale `llama3.2:latest`-model (3B), som ikke pålideligt holder sig til den kontekst, værktøjerne returnerer.
-
-Vi afprøvede også `qwen2.5:latest` som alternativ chat-model for at undersøge, om en anden lokal model klarede sig bedre — se `agent/model-comparison.md` for den fulde sammenligning. Kort fortalt: qwen2.5 var bedre til at citere hentet tekst korrekt, men havde til gengæld en strukturel kompatibilitetsfejl med Graph Search-værktøjet (afviste valgfrie parametre), som i et tilfælde førte til fuldstændig urelateret hallucination. Vi beholdt `llama3.2:latest` som den endelige model, da dens fejlmønster er mere forudsigeligt.
+Jeg afprøvede også `qwen2.5:latest` som alternativ chat-model for at undersøge, om en anden lokal model klarede sig bedre — se `agent/model-comparison.md` for den fulde sammenligning. Kort fortalt: qwen2.5 var bedre til at citere hentet tekst korrekt, men havde til gengæld en strukturel kompatibilitetsfejl med Graph Search-værktøjet (afviste valgfrie parametre), som i et tilfælde førte til fuldstændig urelateret hallucination. Jeg beholdt `llama3.2:latest` som den endelige model, da dens fejlmønster er mere forudsigeligt.
